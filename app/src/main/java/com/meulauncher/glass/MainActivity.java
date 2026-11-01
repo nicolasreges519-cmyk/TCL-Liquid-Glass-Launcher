@@ -35,6 +35,8 @@ public class MainActivity extends Activity {
     private boolean clockWidget;
     private boolean shortcutsWidget;
     private int widgetSize;
+    private boolean weatherWidget;
+    private TextView weatherView;
 
     private int dp(int n) { return (int)(getResources().getDisplayMetrics().density * n + 0.5f); }
 
@@ -86,6 +88,7 @@ public class MainActivity extends Activity {
         clockWidget = prefs.getBoolean("clockWidget", true);
         shortcutsWidget = prefs.getBoolean("shortcutsWidget", true);
         widgetSize = prefs.getInt("widgetSize", 1);
+        weatherWidget = prefs.getBoolean("weatherWidget", true);
         showHome();
     }
 
@@ -119,6 +122,14 @@ public class MainActivity extends Activity {
         feature.setGravity(Gravity.CENTER);
         feature.setBackground(panel(25));
         content.addView(feature, new LinearLayout.LayoutParams(-1, 0, 1));
+        if (weatherWidget) {
+            weatherView = label("Campinas, SP  •  Carregando clima…", 21);
+            weatherView.setBackground(panel(20));
+            LinearLayout.LayoutParams weatherParams = new LinearLayout.LayoutParams(-1, dp(66 + widgetSize * 20));
+            weatherParams.bottomMargin = dp(8);
+            content.addView(weatherView, weatherParams);
+            loadCampinasWeather();
+        }
         if (clockWidget) {
             TextView clock = label("Relógio  •  " + new java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(new java.util.Date()), 21);
             clock.setBackground(panel(20));
@@ -185,6 +196,38 @@ public class MainActivity extends Activity {
         content.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
     }
 
+    private void loadCampinasWeather() {
+        final TextView target = weatherView;
+        new Thread(() -> {
+            String message = "Campinas, SP  •  Clima indisponível";
+            java.net.HttpURLConnection connection = null;
+            try {
+                java.net.URL url = new java.net.URL("https://api.open-meteo.com/v1/forecast?latitude=-22.9056&longitude=-47.0608&current=temperature_2m,relative_humidity_2m,weather_code&timezone=America%2FSao_Paulo");
+                connection = (java.net.HttpURLConnection) url.openConnection();
+                connection.setConnectTimeout(7000);
+                connection.setReadTimeout(7000);
+                try (java.io.InputStream input = connection.getInputStream();
+                     java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream()) {
+                    byte[] buffer = new byte[4096];
+                    int count;
+                    while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+                    org.json.JSONObject current = new org.json.JSONObject(output.toString("UTF-8")).getJSONObject("current");
+                    int temperature = (int) Math.round(current.getDouble("temperature_2m"));
+                    int humidity = current.getInt("relative_humidity_2m");
+                    int code = current.getInt("weather_code");
+                    String condition = code == 0 ? "Céu limpo" : code <= 3 ? "Parcialmente nublado" : code <= 48 ? "Neblina" : code <= 67 ? "Chuva" : code <= 77 ? "Neve" : code <= 82 ? "Pancadas de chuva" : code <= 86 ? "Neve" : code <= 99 ? "Tempestade" : "Condição variável";
+                    message = "Campinas, SP   •   " + temperature + "°C\\n" + condition + "   •   Umidade " + humidity + "%";
+                }
+            } catch (Exception ignored) {
+                // Mantém mensagem de indisponibilidade se não houver internet.
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+            final String result = message;
+            runOnUiThread(() -> { if (target.getParent() != null) target.setText(result); });
+        }).start();
+    }
+
     private void showSettings() {
         base("Personalização  •  TCL Google TV");
         ScrollView scroll = new ScrollView(this);
@@ -204,6 +247,11 @@ public class MainActivity extends Activity {
             showSettings();
         });
         options.addView(label("Widgets", 21));
+        addAction(options, "Clima de Campinas: " + (weatherWidget ? "Exibir" : "Ocultar"), () -> {
+            weatherWidget = !weatherWidget;
+            prefs.edit().putBoolean("weatherWidget", weatherWidget).apply();
+            showSettings();
+        });
         addAction(options, "Relógio: " + (clockWidget ? "Exibir" : "Ocultar"), () -> {
             clockWidget = !clockWidget;
             prefs.edit().putBoolean("clockWidget", clockWidget).apply();
