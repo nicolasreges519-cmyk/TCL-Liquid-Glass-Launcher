@@ -36,6 +36,8 @@ public class MainActivity extends Activity {
     private boolean shortcutsWidget;
     private int widgetSize;
     private boolean weatherWidget;
+    private boolean dateWidget, greetingWidget;
+    private int clockFont, clockFormat;
     private TextView weatherView;
     private static final int PICK_WALLPAPER = 701;
     private android.graphics.Bitmap customWallpaper;
@@ -91,6 +93,10 @@ public class MainActivity extends Activity {
         shortcutsWidget = prefs.getBoolean("shortcutsWidget", true);
         widgetSize = prefs.getInt("widgetSize", 1);
         weatherWidget = prefs.getBoolean("weatherWidget", true);
+        dateWidget = prefs.getBoolean("dateWidget", true);
+        greetingWidget = prefs.getBoolean("greetingWidget", false);
+        clockFont = prefs.getInt("clockFont", 0);
+        clockFormat = prefs.getInt("clockFormat", 0);
         loadSavedWallpaper();
         showHome();
     }
@@ -138,9 +144,21 @@ public class MainActivity extends Activity {
             loadCampinasWeather();
         }
         if (clockWidget) {
-            TextView clock = label("Relógio  •  " + new java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(new java.util.Date()), 21);
+            TextView clock = label(new java.text.SimpleDateFormat(clockFormat == 0 ? "HH:mm" : "hh:mm a", java.util.Locale.getDefault()).format(new java.util.Date()), 27);
+            android.graphics.Typeface[] fonts = {android.graphics.Typeface.DEFAULT, android.graphics.Typeface.SERIF, android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.create("sans-serif-light", 0), android.graphics.Typeface.create("sans-serif-condensed", 1)};
+            clock.setTypeface(fonts[Math.max(0, Math.min(4, clockFont))]);
             clock.setBackground(panel(20));
             content.addView(clock, new LinearLayout.LayoutParams(-1, dp(54 + widgetSize * 18)));
+        }
+        if (dateWidget) {
+            TextView date = label(new java.text.SimpleDateFormat("EEEE, dd MMMM", new java.util.Locale("pt", "BR")).format(new java.util.Date()), 17);
+            date.setBackground(panel(16));
+            content.addView(date, new LinearLayout.LayoutParams(-1, dp(45)));
+        }
+        if (greetingWidget) {
+            TextView greeting = label("Bem-vindo à TCL Google TV", 18);
+            greeting.setBackground(panel(16));
+            content.addView(greeting, new LinearLayout.LayoutParams(-1, dp(45)));
         }
         if (shortcutsWidget) addAction(content, "Atalho: meus aplicativos", this::showApps);
         addAction(content, "Abrir aplicativos instalados", this::showApps);
@@ -324,6 +342,27 @@ public class MainActivity extends Activity {
         addAction(options, "Tamanho dos widgets: " + sizes[widgetSize] + "  ›", () -> {
             widgetSize = (widgetSize + 1) % 3;
             prefs.edit().putInt("widgetSize", widgetSize).apply();
+            showSettings();
+        });
+        addAction(options, "Widget de data: " + (dateWidget ? "Exibir" : "Ocultar"), () -> {
+            dateWidget = !dateWidget;
+            prefs.edit().putBoolean("dateWidget", dateWidget).apply();
+            showSettings();
+        });
+        addAction(options, "Widget de boas-vindas: " + (greetingWidget ? "Exibir" : "Ocultar"), () -> {
+            greetingWidget = !greetingWidget;
+            prefs.edit().putBoolean("greetingWidget", greetingWidget).apply();
+            showSettings();
+        });
+        String[] fontNames = {"Padrão", "Clássica", "Digital", "Fina", "Condensada"};
+        addAction(options, "Fonte do relógio: " + fontNames[clockFont] + "  ›", () -> {
+            clockFont = (clockFont + 1) % fontNames.length;
+            prefs.edit().putInt("clockFont", clockFont).apply();
+            showSettings();
+        });
+        addAction(options, "Formato do relógio: " + (clockFormat == 0 ? "24 horas" : "12 horas") + "  ›", () -> {
+            clockFormat = 1 - clockFormat;
+            prefs.edit().putInt("clockFormat", clockFormat).apply();
             showSettings();
         });
         addAction(options, "Tamanho dos aplicativos: " + tileSize + " dp", () -> {
