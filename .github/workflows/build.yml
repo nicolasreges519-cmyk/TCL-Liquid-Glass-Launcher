@@ -3,7 +3,7 @@ name: Compilar TCL Liquid Glass
 
 on:
   push:
-    branches: [main]
+    branches: [main, revisao-final-liquid-glass]
   workflow_dispatch:
 
 jobs:
