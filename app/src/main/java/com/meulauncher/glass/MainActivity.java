@@ -31,6 +31,7 @@ public class MainActivity extends Activity {
     private int accent = Color.rgb(180, 205, 225);
     private boolean glassEnabled;
     private boolean glassMotion;
+    private boolean glassOnAllApps;
     private int tileSize;
     private int glassStyle;
     private boolean clockWidget;
@@ -86,6 +87,28 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void styleAppTile(View tile, int radius) {
+        tile.setBackground(glassOnAllApps && glassEnabled ? panel(radius) : plainAppTile(radius));
+    }
+
+    private GradientDrawable plainAppTile(int radius) {
+        GradientDrawable d = new GradientDrawable();
+        d.setColor(Color.argb(175, 30, 32, 38));
+        d.setCornerRadius(dp(radius));
+        return d;
+    }
+
+    private void appTileFocus(View tile, boolean focused, int radius) {
+        if (focused) {
+            glassFocus(tile, true, radius);
+        } else {
+            tile.animate().cancel();
+            tile.animate().scaleX(1f).scaleY(1f).alpha(1f)
+                    .setDuration(glassMotion ? 180 : 0).start();
+            styleAppTile(tile, radius);
+        }
+    }
+
     private TextView label(String value, int size) {
         TextView t = new TextView(this);
         t.setText(value);
@@ -117,6 +140,7 @@ public class MainActivity extends Activity {
         prefs = getSharedPreferences("launcher", MODE_PRIVATE);
         glassEnabled = prefs.getBoolean("glass", true);
         glassMotion = prefs.getBoolean("glassMotion", true);
+        glassOnAllApps = prefs.getBoolean("glassOnAllApps", false);
         tileSize = prefs.getInt("tile", 115);
         glassStyle = prefs.getInt("glassStyle", 0);
         clockWidget = prefs.getBoolean("clockWidget", true);
@@ -224,7 +248,7 @@ public class MainActivity extends Activity {
             tile.setOrientation(LinearLayout.VERTICAL);
             tile.setGravity(Gravity.CENTER);
             tile.setPadding(dp(8), dp(8), dp(8), dp(8));
-            tile.setBackground(panel(18));
+            styleAppTile(tile, 18);
             ImageView image = new ImageView(this);
             image.setImageDrawable(loadAppIcon(info.activityInfo.packageName, info.loadIcon(pm)));
             image.setScaleType(ImageView.ScaleType.FIT_CENTER);
@@ -235,7 +259,7 @@ public class MainActivity extends Activity {
             name.setEllipsize(android.text.TextUtils.TruncateAt.END);
             tile.addView(name, new LinearLayout.LayoutParams(-1, dp(38)));
             tile.setFocusable(true);
-            tile.setOnFocusChangeListener((v, focused) -> glassFocus(v, focused, 18));
+            tile.setOnFocusChangeListener((v, focused) -> appTileFocus(v, focused, 18));
             tile.setOnClickListener(v -> launchApp(info, appName));
             tile.setOnLongClickListener(v -> {
                 showIconOptions(info.activityInfo.packageName, appName);
@@ -293,7 +317,7 @@ public class MainActivity extends Activity {
             String name = info.loadLabel(pm).toString();
             LinearLayout line = new LinearLayout(this);
             line.setGravity(Gravity.CENTER_VERTICAL);
-            line.setBackground(panel(18));
+            styleAppTile(line, 18);
             line.setPadding(dp(12), dp(6), dp(12), dp(6));
             ImageView icon = new ImageView(this);
             icon.setImageDrawable(loadAppIcon(info.activityInfo.packageName, info.loadIcon(pm)));
@@ -311,7 +335,7 @@ public class MainActivity extends Activity {
                     android.widget.Toast.makeText(this, "Não foi possível abrir " + name, android.widget.Toast.LENGTH_SHORT).show();
                 }
             });
-            line.setOnFocusChangeListener((v, focused) -> glassFocus(v, focused, 18));
+            line.setOnFocusChangeListener((v, focused) -> appTileFocus(v, focused, 18));
             line.setOnLongClickListener(v -> {
                 showIconOptions(info.activityInfo.packageName, name);
                 return true;
@@ -567,6 +591,12 @@ public class MainActivity extends Activity {
         addAction(options, "Animação Liquid Glass: " + (glassMotion ? "Ativada" : "Desativada"), () -> {
             glassMotion = !glassMotion;
             prefs.edit().putBoolean("glassMotion", glassMotion).apply();
+            showSettings();
+        });
+        addAction(options, "Liquid Glass em todos os aplicativos: " +
+                (glassOnAllApps ? "Ativado" : "Desativado"), () -> {
+            glassOnAllApps = !glassOnAllApps;
+            prefs.edit().putBoolean("glassOnAllApps", glassOnAllApps).apply();
             showSettings();
         });
         options.addView(label("Widgets", 21));
