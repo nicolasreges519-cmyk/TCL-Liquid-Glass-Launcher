@@ -38,6 +38,8 @@ public class MainActivity extends Activity {
     private boolean weatherWidget;
     private boolean dateWidget, greetingWidget;
     private int clockFont, clockFormat;
+    private static final String[] WIDGET_IDS = {"clock", "weather", "date", "greeting", "shortcuts"};
+    private static final String[] WIDGET_NAMES = {"Relógio", "Clima de Campinas", "Data", "Boas-vindas", "Atalhos"};
     private TextView weatherView;
     private static final int PICK_WALLPAPER = 701;
     private static final int PICK_APP_ICON = 702;
@@ -144,41 +146,43 @@ public class MainActivity extends Activity {
         featureParams.bottomMargin = dp(14);
         home.addView(feature, featureParams);
 
-        LinearLayout widgets = new LinearLayout(this);
-        widgets.setOrientation(LinearLayout.HORIZONTAL);
-        if (clockWidget) {
-            TextView clock = label("", 28);
-            Typeface[] fonts = {Typeface.DEFAULT, Typeface.SERIF, Typeface.MONOSPACE,
-                    Typeface.create("sans-serif-light", 0), Typeface.create("sans-serif-condensed", 1)};
-            clock.setTypeface(fonts[Math.max(0, Math.min(4, clockFont))]);
-            clock.setBackground(panel(20));
-            Runnable updateClock = new Runnable() {
-                @Override public void run() {
-                    if (clock.getParent() == null) return;
-                    clock.setText(new java.text.SimpleDateFormat(clockFormat == 0 ? "HH:mm" : "hh:mm a",
-                            java.util.Locale.getDefault()).format(new java.util.Date()));
-                    clock.postDelayed(this, 30000);
-                }
-            };
-            widgets.addView(clock, new LinearLayout.LayoutParams(0, dp(75 + widgetSize * 10), 1));
-            clock.post(updateClock);
+        home.addView(label("Widgets", 20));
+        for (String id : widgetOrder()) {
+            if (!isWidgetVisible(id)) continue;
+            if (id.equals("clock")) {
+                TextView clock = label("", 28);
+                Typeface[] fonts = {Typeface.DEFAULT, Typeface.SERIF, Typeface.MONOSPACE,
+                        Typeface.create("sans-serif-light", 0), Typeface.create("sans-serif-condensed", 1)};
+                clock.setTypeface(fonts[Math.max(0, Math.min(4, clockFont))]);
+                clock.setBackground(panel(20));
+                Runnable updateClock = new Runnable() {
+                    @Override public void run() {
+                        if (clock.getParent() == null) return;
+                        clock.setText(new java.text.SimpleDateFormat(clockFormat == 0 ? "HH:mm" : "hh:mm a",
+                                java.util.Locale.getDefault()).format(new java.util.Date()));
+                        clock.postDelayed(this, 30000);
+                    }
+                };
+                home.addView(clock, widgetParams());
+                clock.post(updateClock);
+            } else if (id.equals("weather")) {
+                weatherView = label("Campinas, SP  •  Carregando clima…", 17);
+                weatherView.setBackground(panel(20));
+                home.addView(weatherView, widgetParams());
+                loadCampinasWeather();
+            } else if (id.equals("date")) {
+                TextView date = label(new java.text.SimpleDateFormat("EEEE, dd 'de' MMMM",
+                        new java.util.Locale("pt", "BR")).format(new java.util.Date()), 18);
+                date.setBackground(panel(20));
+                home.addView(date, widgetParams());
+            } else if (id.equals("greeting")) {
+                TextView welcome = label("Bem-vindo à sua TCL Google TV", 18);
+                welcome.setBackground(panel(20));
+                home.addView(welcome, widgetParams());
+            } else if (id.equals("shortcuts")) {
+                addAction(home, "Ver todos os aplicativos  ›", this::showApps);
+            }
         }
-        if (weatherWidget) {
-            weatherView = label("Campinas, SP  •  Carregando clima…", 17);
-            weatherView.setBackground(panel(20));
-            LinearLayout.LayoutParams weatherParams = new LinearLayout.LayoutParams(0, dp(75 + widgetSize * 10), 2);
-            weatherParams.leftMargin = dp(10);
-            widgets.addView(weatherView, weatherParams);
-            loadCampinasWeather();
-        }
-        if (widgets.getChildCount() > 0) {
-            LinearLayout.LayoutParams widgetParams = new LinearLayout.LayoutParams(-1, -2);
-            widgetParams.bottomMargin = dp(12);
-            home.addView(widgets, widgetParams);
-        }
-        if (dateWidget) home.addView(label(new java.text.SimpleDateFormat("EEEE, dd 'de' MMMM",
-                new java.util.Locale("pt", "BR")).format(new java.util.Date()), 16));
-        if (greetingWidget) home.addView(label("Bem-vindo à sua TCL Google TV", 17));
         home.addView(label("Seus aplicativos", 22));
         android.widget.HorizontalScrollView appScroll = new android.widget.HorizontalScrollView(this);
         appScroll.setHorizontalScrollBarEnabled(false);
@@ -222,7 +226,6 @@ public class MainActivity extends Activity {
         if (count == 0) appRow.addView(label("Nenhum aplicativo encontrado", 17));
         appScroll.addView(appRow);
         home.addView(appScroll, new LinearLayout.LayoutParams(-1, dp(148)));
-        if (shortcutsWidget) addAction(home, "Ver todos os aplicativos  ›", this::showApps);
         addAction(home, "Personalizar tela inicial  ›", this::showSettings);
         scroll.addView(home);
         content.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
@@ -445,6 +448,80 @@ public class MainActivity extends Activity {
         content.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
     }
 
+    private LinearLayout.LayoutParams widgetParams() {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, dp(55 + widgetSize * 20));
+        params.bottomMargin = dp(9);
+        return params;
+    }
+
+    private List<String> widgetOrder() {
+        String saved = prefs.getString("widgetOrder", "clock,weather,date,greeting,shortcuts");
+        List<String> order = new ArrayList<>();
+        for (String item : saved.split(",")) {
+            for (String known : WIDGET_IDS) {
+                if (known.equals(item) && !order.contains(item)) order.add(item);
+            }
+        }
+        for (String id : WIDGET_IDS) if (!order.contains(id)) order.add(id);
+        return order;
+    }
+
+    private boolean isWidgetVisible(String id) {
+        switch (id) {
+            case "clock": return clockWidget;
+            case "weather": return weatherWidget;
+            case "date": return dateWidget;
+            case "greeting": return greetingWidget;
+            case "shortcuts": return shortcutsWidget;
+            default: return false;
+        }
+    }
+
+    private void setWidgetVisible(String id, boolean visible) {
+        switch (id) {
+            case "clock": clockWidget = visible; prefs.edit().putBoolean("clockWidget", visible).apply(); break;
+            case "weather": weatherWidget = visible; prefs.edit().putBoolean("weatherWidget", visible).apply(); break;
+            case "date": dateWidget = visible; prefs.edit().putBoolean("dateWidget", visible).apply(); break;
+            case "greeting": greetingWidget = visible; prefs.edit().putBoolean("greetingWidget", visible).apply(); break;
+            case "shortcuts": shortcutsWidget = visible; prefs.edit().putBoolean("shortcutsWidget", visible).apply(); break;
+        }
+    }
+
+    private String widgetName(String id) {
+        for (int i = 0; i < WIDGET_IDS.length; i++) if (WIDGET_IDS[i].equals(id)) return WIDGET_NAMES[i];
+        return id;
+    }
+
+    private void showWidgetManager() {
+        base("Gerenciar widgets");
+        content.addView(label("OK: mostrar ou ocultar. Use as opções para mudar a ordem.", 16));
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        List<String> order = widgetOrder();
+        for (int i = 0; i < order.size(); i++) {
+            final int position = i;
+            String id = order.get(i);
+            addAction(list, (isWidgetVisible(id) ? "✓  " : "+  ") + widgetName(id) + "  •  " +
+                    (isWidgetVisible(id) ? "Ativado" : "Desativado"), () -> {
+                setWidgetVisible(id, !isWidgetVisible(id));
+                showWidgetManager();
+            });
+            if (i > 0) addAction(list, "↑  Subir " + widgetName(id), () -> {
+                Collections.swap(order, position, position - 1);
+                prefs.edit().putString("widgetOrder", android.text.TextUtils.join(",", order)).apply();
+                showWidgetManager();
+            });
+            if (i < order.size() - 1) addAction(list, "↓  Descer " + widgetName(id), () -> {
+                Collections.swap(order, position, position + 1);
+                prefs.edit().putString("widgetOrder", android.text.TextUtils.join(",", order)).apply();
+                showWidgetManager();
+            });
+        }
+        scroll.addView(list);
+        content.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+    }
+
     private void showSettings() {
         base("Personalização  •  TCL Google TV");
         ScrollView scroll = new ScrollView(this);
@@ -466,6 +543,7 @@ public class MainActivity extends Activity {
             showSettings();
         });
         options.addView(label("Widgets", 21));
+        addAction(options, "Gerenciar, adicionar, remover e organizar widgets  ›", this::showWidgetManager);
         addAction(options, "Clima de Campinas: " + (weatherWidget ? "Exibir" : "Ocultar"), () -> {
             weatherWidget = !weatherWidget;
             prefs.edit().putBoolean("weatherWidget", weatherWidget).apply();
@@ -519,7 +597,7 @@ public class MainActivity extends Activity {
             try { startActivity(new Intent(Settings.ACTION_SETTINGS)); }
             catch (Exception e) { android.widget.Toast.makeText(this, "Configurações indisponíveis", 0).show(); }
         });
-        options.addView(label("Mais widgets e organização personalizada: em desenvolvimento.", 14));
+        options.addView(label("Novos tipos de widgets e arrastar livremente: em desenvolvimento.", 14));
         scroll.addView(options);
         content.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
     }
