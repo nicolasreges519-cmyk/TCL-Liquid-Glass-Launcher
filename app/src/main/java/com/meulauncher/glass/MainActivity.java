@@ -132,39 +132,112 @@ public class MainActivity extends Activity {
     }
 
     private void showHome() {
-        base("TCL Google TV  •  Liquid Glass");
-        TextView feature = label("Bem-vindo!\n\nEscolha um aplicativo para começar", 23);
-        feature.setGravity(Gravity.CENTER);
-        feature.setBackground(panel(25));
-        content.addView(feature, new LinearLayout.LayoutParams(-1, 0, 1));
-        if (weatherWidget) {
-            weatherView = label("Campinas, SP  •  Carregando clima…", 21);
-            weatherView.setBackground(panel(20));
-            LinearLayout.LayoutParams weatherParams = new LinearLayout.LayoutParams(-1, dp(66 + widgetSize * 20));
-            weatherParams.bottomMargin = dp(8);
-            content.addView(weatherView, weatherParams);
-            loadCampinasWeather();
-        }
+        base("TCL Google TV");
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout home = new LinearLayout(this);
+        home.setOrientation(LinearLayout.VERTICAL);
+        home.setPadding(0, dp(8), dp(10), dp(10));
+        TextView feature = label("Sua TV, do seu jeito\\nLiquid Glass", 27);
+        feature.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        feature.setBackground(panel(24));
+        LinearLayout.LayoutParams featureParams = new LinearLayout.LayoutParams(-1, dp(120));
+        featureParams.bottomMargin = dp(14);
+        home.addView(feature, featureParams);
+
+        LinearLayout widgets = new LinearLayout(this);
+        widgets.setOrientation(LinearLayout.HORIZONTAL);
         if (clockWidget) {
-            TextView clock = label(new java.text.SimpleDateFormat(clockFormat == 0 ? "HH:mm" : "hh:mm a", java.util.Locale.getDefault()).format(new java.util.Date()), 27);
-            android.graphics.Typeface[] fonts = {android.graphics.Typeface.DEFAULT, android.graphics.Typeface.SERIF, android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.create("sans-serif-light", 0), android.graphics.Typeface.create("sans-serif-condensed", 1)};
+            TextView clock = label("", 28);
+            Typeface[] fonts = {Typeface.DEFAULT, Typeface.SERIF, Typeface.MONOSPACE,
+                    Typeface.create("sans-serif-light", 0), Typeface.create("sans-serif-condensed", 1)};
             clock.setTypeface(fonts[Math.max(0, Math.min(4, clockFont))]);
             clock.setBackground(panel(20));
-            content.addView(clock, new LinearLayout.LayoutParams(-1, dp(54 + widgetSize * 18)));
+            Runnable updateClock = new Runnable() {
+                @Override public void run() {
+                    if (clock.getParent() == null) return;
+                    clock.setText(new java.text.SimpleDateFormat(clockFormat == 0 ? "HH:mm" : "hh:mm a",
+                            java.util.Locale.getDefault()).format(new java.util.Date()));
+                    clock.postDelayed(this, 30000);
+                }
+            };
+            widgets.addView(clock, new LinearLayout.LayoutParams(0, dp(75 + widgetSize * 10), 1));
+            clock.post(updateClock);
         }
-        if (dateWidget) {
-            TextView date = label(new java.text.SimpleDateFormat("EEEE, dd MMMM", new java.util.Locale("pt", "BR")).format(new java.util.Date()), 17);
-            date.setBackground(panel(16));
-            content.addView(date, new LinearLayout.LayoutParams(-1, dp(45)));
+        if (weatherWidget) {
+            weatherView = label("Campinas, SP  •  Carregando clima…", 17);
+            weatherView.setBackground(panel(20));
+            LinearLayout.LayoutParams weatherParams = new LinearLayout.LayoutParams(0, dp(75 + widgetSize * 10), 2);
+            weatherParams.leftMargin = dp(10);
+            widgets.addView(weatherView, weatherParams);
+            loadCampinasWeather();
         }
-        if (greetingWidget) {
-            TextView greeting = label("Bem-vindo à TCL Google TV", 18);
-            greeting.setBackground(panel(16));
-            content.addView(greeting, new LinearLayout.LayoutParams(-1, dp(45)));
+        if (widgets.getChildCount() > 0) {
+            LinearLayout.LayoutParams widgetParams = new LinearLayout.LayoutParams(-1, -2);
+            widgetParams.bottomMargin = dp(12);
+            home.addView(widgets, widgetParams);
         }
-        if (shortcutsWidget) addAction(content, "Atalho: meus aplicativos", this::showApps);
-        addAction(content, "Abrir aplicativos instalados", this::showApps);
-        addAction(content, "Configurar aparência e papel de parede", this::showSettings);
+        if (dateWidget) home.addView(label(new java.text.SimpleDateFormat("EEEE, dd 'de' MMMM",
+                new java.util.Locale("pt", "BR")).format(new java.util.Date()), 16));
+        if (greetingWidget) home.addView(label("Bem-vindo à sua TCL Google TV", 17));
+        home.addView(label("Seus aplicativos", 22));
+        android.widget.HorizontalScrollView appScroll = new android.widget.HorizontalScrollView(this);
+        appScroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout appRow = new LinearLayout(this);
+        appRow.setOrientation(LinearLayout.HORIZONTAL);
+        PackageManager pm = getPackageManager();
+        List<ResolveInfo> apps = installed();
+        int count = Math.min(apps.size(), 12);
+        for (int i = 0; i < count; i++) {
+            ResolveInfo info = apps.get(i);
+            String appName = info.loadLabel(pm).toString();
+            LinearLayout tile = new LinearLayout(this);
+            tile.setOrientation(LinearLayout.VERTICAL);
+            tile.setGravity(Gravity.CENTER);
+            tile.setPadding(dp(8), dp(8), dp(8), dp(8));
+            tile.setBackground(panel(18));
+            ImageView image = new ImageView(this);
+            image.setImageDrawable(loadAppIcon(info.activityInfo.packageName, info.loadIcon(pm)));
+            image.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            tile.addView(image, new LinearLayout.LayoutParams(dp(55), dp(55)));
+            TextView name = label(appName, 13);
+            name.setGravity(Gravity.CENTER);
+            name.setSingleLine(true);
+            name.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            tile.addView(name, new LinearLayout.LayoutParams(-1, dp(38)));
+            tile.setFocusable(true);
+            tile.setOnFocusChangeListener((v, focused) -> {
+                v.setScaleX(focused ? 1.05f : 1f);
+                v.setScaleY(focused ? 1.05f : 1f);
+                v.setAlpha(focused ? 1f : 0.85f);
+            });
+            tile.setOnClickListener(v -> launchApp(info, appName));
+            tile.setOnLongClickListener(v -> {
+                showIconOptions(info.activityInfo.packageName, appName);
+                return true;
+            });
+            LinearLayout.LayoutParams tileParams = new LinearLayout.LayoutParams(dp(125), dp(126));
+            tileParams.rightMargin = dp(10);
+            appRow.addView(tile, tileParams);
+        }
+        if (count == 0) appRow.addView(label("Nenhum aplicativo encontrado", 17));
+        appScroll.addView(appRow);
+        home.addView(appScroll, new LinearLayout.LayoutParams(-1, dp(148)));
+        if (shortcutsWidget) addAction(home, "Ver todos os aplicativos  ›", this::showApps);
+        addAction(home, "Personalizar tela inicial  ›", this::showSettings);
+        scroll.addView(home);
+        content.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+    }
+
+    private void launchApp(ResolveInfo info, String name) {
+        try {
+            Intent launch = new Intent();
+            launch.setClassName(info.activityInfo.packageName, info.activityInfo.name);
+            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(launch);
+        } catch (Exception e) {
+            android.widget.Toast.makeText(this, "Não foi possível abrir " + name,
+                    android.widget.Toast.LENGTH_SHORT).show();
+        }
     }
 
     private List<ResolveInfo> installed() {
