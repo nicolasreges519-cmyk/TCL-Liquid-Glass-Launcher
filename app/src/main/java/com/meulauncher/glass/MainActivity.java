@@ -40,6 +40,8 @@ public class MainActivity extends Activity {
     private int clockFont, clockFormat;
     private TextView weatherView;
     private static final int PICK_WALLPAPER = 701;
+    private static final int PICK_APP_ICON = 702;
+    private String pendingIconPackage;
     private android.graphics.Bitmap customWallpaper;
 
     private int dp(int n) { return (int)(getResources().getDisplayMetrics().density * n + 0.5f); }
@@ -196,7 +198,7 @@ public class MainActivity extends Activity {
             line.setBackground(panel(18));
             line.setPadding(dp(12), dp(6), dp(12), dp(6));
             ImageView icon = new ImageView(this);
-            icon.setImageDrawable(info.loadIcon(pm));
+            icon.setImageDrawable(loadAppIcon(info.activityInfo.packageName, info.loadIcon(pm)));
             line.addView(icon, new LinearLayout.LayoutParams(dp(45), dp(45)));
             TextView text = label(name, 18);
             line.addView(text, new LinearLayout.LayoutParams(0, dp(tileSize), 1));
@@ -212,6 +214,10 @@ public class MainActivity extends Activity {
                 }
             });
             line.setOnFocusChangeListener((v, focused) -> v.setAlpha(focused ? 1f : 0.75f));
+            line.setOnLongClickListener(v -> {
+                showIconOptions(info.activityInfo.packageName, name);
+                return true;
+            });
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
             lp.bottomMargin = dp(8);
             list.addView(line, lp);
@@ -253,6 +259,43 @@ public class MainActivity extends Activity {
         }).start();
     }
 
+    private android.graphics.drawable.Drawable loadAppIcon(String packageName, android.graphics.drawable.Drawable fallback) {
+        String stored = prefs.getString("appIcon_" + packageName, null);
+        if (stored == null) return fallback;
+        try {
+            android.net.Uri uri = android.net.Uri.parse(stored);
+            android.graphics.BitmapFactory.Options options = new android.graphics.BitmapFactory.Options();
+            options.inSampleSize = 2;
+            try (java.io.InputStream input = getContentResolver().openInputStream(uri)) {
+                android.graphics.Bitmap bitmap = android.graphics.BitmapFactory.decodeStream(input, null, options);
+                if (bitmap != null) return new android.graphics.drawable.BitmapDrawable(getResources(), bitmap);
+            }
+        } catch (Exception ignored) {}
+        return fallback;
+    }
+
+    private void showIconOptions(String packageName, String appName) {
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Ícone de " + appName)
+            .setItems(new String[]{"Escolher imagem da galeria", "Restaurar ícone original"}, (dialog, which) -> {
+                if (which == 0) {
+                    pendingIconPackage = packageName;
+                    try {
+                        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                        intent.setType("image/*");
+                        intent.addCategory(Intent.CATEGORY_OPENABLE);
+                        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+                        startActivityForResult(intent, PICK_APP_ICON);
+                    } catch (Exception e) {
+                        android.widget.Toast.makeText(this, "Seletor de imagens indisponível", android.widget.Toast.LENGTH_SHORT).show();
+                    }
+                } else {
+                    prefs.edit().remove("appIcon_" + packageName).apply();
+                    showApps();
+                }
+            }).show();
+    }
+
     private void pickWallpaper() {
         try {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
@@ -289,6 +332,17 @@ public class MainActivity extends Activity {
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == PICK_APP_ICON && resultCode == RESULT_OK && data != null && data.getData() != null && pendingIconPackage != null) {
+            try {
+                android.net.Uri selected = data.getData();
+                getContentResolver().takePersistableUriPermission(selected, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                prefs.edit().putString("appIcon_" + pendingIconPackage, selected.toString()).apply();
+                pendingIconPackage = null;
+                showApps();
+            } catch (Exception e) {
+                android.widget.Toast.makeText(this, "Não foi possível salvar o ícone", android.widget.Toast.LENGTH_SHORT).show();
+            }
+        }
         if (requestCode == PICK_WALLPAPER && resultCode == RESULT_OK && data != null && data.getData() != null) {
             android.net.Uri selected = data.getData();
             try {
@@ -300,6 +354,22 @@ public class MainActivity extends Activity {
                 android.widget.Toast.makeText(this, "Não foi possível carregar a imagem", android.widget.Toast.LENGTH_SHORT).show();
             }
         }
+    }
+
+    private void showIconSettings() {
+        base("Personalizar ícones");
+        content.addView(label("Escolha um aplicativo para trocar ou restaurar seu ícone.", 17));
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        PackageManager pm = getPackageManager();
+        for (ResolveInfo info : installed()) {
+            String appName = info.loadLabel(pm).toString();
+            String packageName = info.activityInfo.packageName;
+            addAction(list, appName + "  ›", () -> showIconOptions(packageName, appName));
+        }
+        scroll.addView(list);
+        content.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
     }
 
     private void showSettings() {
@@ -370,6 +440,7 @@ public class MainActivity extends Activity {
             prefs.edit().putInt("tile", tileSize).apply();
             showSettings();
         });
+        addAction(options, "Personalizar ícones dos aplicativos  ›", this::showIconSettings);
         addAction(options, "Aplicativos instalados  ›", this::showApps);
         addAction(options, "Configurações do sistema  ›", () -> {
             try { startActivity(new Intent(Settings.ACTION_SETTINGS)); }
