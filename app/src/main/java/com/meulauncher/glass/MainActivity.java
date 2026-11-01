@@ -30,6 +30,7 @@ public class MainActivity extends Activity {
     private SharedPreferences prefs;
     private int accent = Color.rgb(180, 205, 225);
     private boolean glassEnabled;
+    private boolean glassMotion;
     private int tileSize;
     private int glassStyle;
     private boolean clockWidget;
@@ -57,6 +58,34 @@ public class MainActivity extends Activity {
         return bg;
     }
 
+    // Reflexo discreto na borda do foco, sem faixas atravessando a tela.
+    private GradientDrawable focusGlass(int radius) {
+        GradientDrawable d = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{Color.argb(190, 225, 235, 245), Color.argb(115, 130, 150, 170),
+                        Color.argb(165, 245, 230, 240)});
+        d.setCornerRadius(dp(radius));
+        d.setStroke(dp(2), Color.argb(225, 245, 250, 255));
+        return d;
+    }
+
+    private void glassFocus(View v, boolean focused, int radius) {
+        v.animate().cancel();
+        if (glassEnabled && glassMotion) {
+            v.setBackground(focused ? focusGlass(radius) : panel(radius));
+            v.animate().scaleX(focused ? 1.045f : 1f)
+                    .scaleY(focused ? 1.045f : 1f)
+                    .alpha(focused ? 1f : 0.92f)
+                    .setDuration(180)
+                    .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                    .start();
+        } else {
+            v.setBackground(focused ? focusGlass(radius) : panel(radius));
+            v.setScaleX(1f);
+            v.setScaleY(1f);
+            v.setAlpha(1f);
+        }
+    }
+
     private TextView label(String value, int size) {
         TextView t = new TextView(this);
         t.setText(value);
@@ -72,11 +101,7 @@ public class MainActivity extends Activity {
         t.setFocusable(true);
         t.setBackground(panel(16));
         t.setOnClickListener(v -> runnable.run());
-        t.setOnFocusChangeListener((v, focused) -> {
-            v.setScaleX(focused ? 1.04f : 1f);
-            v.setScaleY(focused ? 1.04f : 1f);
-            v.setAlpha(focused ? 1f : 0.88f);
-        });
+        t.setOnFocusChangeListener((v, focused) -> glassFocus(v, focused, 16));
         return t;
     }
 
@@ -91,6 +116,7 @@ public class MainActivity extends Activity {
         super.onCreate(state);
         prefs = getSharedPreferences("launcher", MODE_PRIVATE);
         glassEnabled = prefs.getBoolean("glass", true);
+        glassMotion = prefs.getBoolean("glassMotion", true);
         tileSize = prefs.getInt("tile", 115);
         glassStyle = prefs.getInt("glassStyle", 0);
         clockWidget = prefs.getBoolean("clockWidget", true);
@@ -209,11 +235,7 @@ public class MainActivity extends Activity {
             name.setEllipsize(android.text.TextUtils.TruncateAt.END);
             tile.addView(name, new LinearLayout.LayoutParams(-1, dp(38)));
             tile.setFocusable(true);
-            tile.setOnFocusChangeListener((v, focused) -> {
-                v.setScaleX(focused ? 1.05f : 1f);
-                v.setScaleY(focused ? 1.05f : 1f);
-                v.setAlpha(focused ? 1f : 0.85f);
-            });
+            tile.setOnFocusChangeListener((v, focused) -> glassFocus(v, focused, 18));
             tile.setOnClickListener(v -> launchApp(info, appName));
             tile.setOnLongClickListener(v -> {
                 showIconOptions(info.activityInfo.packageName, appName);
@@ -289,7 +311,7 @@ public class MainActivity extends Activity {
                     android.widget.Toast.makeText(this, "Não foi possível abrir " + name, android.widget.Toast.LENGTH_SHORT).show();
                 }
             });
-            line.setOnFocusChangeListener((v, focused) -> v.setAlpha(focused ? 1f : 0.75f));
+            line.setOnFocusChangeListener((v, focused) -> glassFocus(v, focused, 18));
             line.setOnLongClickListener(v -> {
                 showIconOptions(info.activityInfo.packageName, name);
                 return true;
@@ -540,6 +562,11 @@ public class MainActivity extends Activity {
             glassStyle = (glassStyle + 1) % styles.length;
             glassEnabled = glassStyle != 4;
             prefs.edit().putInt("glassStyle", glassStyle).putBoolean("glass", glassEnabled).apply();
+            showSettings();
+        });
+        addAction(options, "Animação Liquid Glass: " + (glassMotion ? "Ativada" : "Desativada"), () -> {
+            glassMotion = !glassMotion;
+            prefs.edit().putBoolean("glassMotion", glassMotion).apply();
             showSettings();
         });
         options.addView(label("Widgets", 21));
