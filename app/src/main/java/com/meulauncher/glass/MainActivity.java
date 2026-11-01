@@ -31,12 +31,17 @@ public class MainActivity extends Activity {
     private int accent = Color.rgb(180, 205, 225);
     private boolean glassEnabled;
     private int tileSize;
+    private int glassStyle;
+    private boolean clockWidget;
+    private boolean shortcutsWidget;
+    private int widgetSize;
 
     private int dp(int n) { return (int)(getResources().getDisplayMetrics().density * n + 0.5f); }
 
     private GradientDrawable panel(int radius) {
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(glassEnabled ? Color.argb(125, 145, 160, 180) : Color.rgb(40, 47, 61));
+        int[] shades = {Color.argb(115, 110, 110, 115), Color.argb(65, 145, 145, 145), Color.argb(115, 155, 100, 125), Color.argb(210, 30, 30, 34), Color.rgb(43, 43, 46)};
+        bg.setColor(glassEnabled ? shades[Math.max(0, Math.min(4, glassStyle))] : shades[4]);
         bg.setCornerRadius(dp(radius));
         bg.setStroke(dp(1), glassEnabled ? Color.argb(145, 255, 255, 255) : Color.rgb(95, 105, 120));
         return bg;
@@ -77,6 +82,10 @@ public class MainActivity extends Activity {
         prefs = getSharedPreferences("launcher", MODE_PRIVATE);
         glassEnabled = prefs.getBoolean("glass", true);
         tileSize = prefs.getInt("tile", 115);
+        glassStyle = prefs.getInt("glassStyle", 0);
+        clockWidget = prefs.getBoolean("clockWidget", true);
+        shortcutsWidget = prefs.getBoolean("shortcutsWidget", true);
+        widgetSize = prefs.getInt("widgetSize", 1);
         showHome();
     }
 
@@ -110,6 +119,12 @@ public class MainActivity extends Activity {
         feature.setGravity(Gravity.CENTER);
         feature.setBackground(panel(25));
         content.addView(feature, new LinearLayout.LayoutParams(-1, 0, 1));
+        if (clockWidget) {
+            TextView clock = label("Relógio  •  " + new java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(new java.util.Date()), 21);
+            clock.setBackground(panel(20));
+            content.addView(clock, new LinearLayout.LayoutParams(-1, dp(54 + widgetSize * 18)));
+        }
+        if (shortcutsWidget) addAction(content, "Atalho: meus aplicativos", this::showApps);
         addAction(content, "Abrir aplicativos instalados", this::showApps);
         addAction(content, "Configurar aparência e papel de parede", this::showSettings);
     }
@@ -171,28 +186,53 @@ public class MainActivity extends Activity {
     }
 
     private void showSettings() {
-        base("Configurações");
-        addAction(content, "Liquid Glass: " + (glassEnabled ? "Ligado" : "Desligado"), () -> {
-            glassEnabled = !glassEnabled;
-            prefs.edit().putBoolean("glass", glassEnabled).apply();
+        base("Personalização  •  TCL Google TV");
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout options = new LinearLayout(this);
+        options.setOrientation(LinearLayout.VERTICAL);
+        options.setPadding(dp(8), dp(8), dp(8), dp(12));
+        options.addView(label("Deixe o seu launcher do seu jeito", 19));
+        addAction(options, "Papel de parede  ›", () -> {
+            try { startActivity(new Intent(Intent.ACTION_SET_WALLPAPER)); }
+            catch (Exception e) { android.widget.Toast.makeText(this, "Seletor indisponível nesta TV", 0).show(); }
+        });
+        String[] styles = {"Padrão (cinza)", "Transparente", "Colorido", "Escuro", "Sem efeito"};
+        addAction(options, "Estilo Liquid Glass: " + styles[glassStyle] + "  ›", () -> {
+            glassStyle = (glassStyle + 1) % styles.length;
+            glassEnabled = glassStyle != 4;
+            prefs.edit().putInt("glassStyle", glassStyle).putBoolean("glass", glassEnabled).apply();
             showSettings();
         });
-        addAction(content, "Tamanho dos aplicativos: " + tileSize + " dp", () -> {
+        options.addView(label("Widgets", 21));
+        addAction(options, "Relógio: " + (clockWidget ? "Exibir" : "Ocultar"), () -> {
+            clockWidget = !clockWidget;
+            prefs.edit().putBoolean("clockWidget", clockWidget).apply();
+            showSettings();
+        });
+        addAction(options, "Atalho de aplicativos: " + (shortcutsWidget ? "Exibir" : "Ocultar"), () -> {
+            shortcutsWidget = !shortcutsWidget;
+            prefs.edit().putBoolean("shortcutsWidget", shortcutsWidget).apply();
+            showSettings();
+        });
+        String[] sizes = {"Pequeno", "Médio", "Grande"};
+        addAction(options, "Tamanho dos widgets: " + sizes[widgetSize] + "  ›", () -> {
+            widgetSize = (widgetSize + 1) % 3;
+            prefs.edit().putInt("widgetSize", widgetSize).apply();
+            showSettings();
+        });
+        addAction(options, "Tamanho dos aplicativos: " + tileSize + " dp", () -> {
             tileSize = tileSize >= 155 ? 85 : tileSize + 35;
             prefs.edit().putInt("tile", tileSize).apply();
             showSettings();
         });
-        addAction(content, "Alterar papel de parede", () -> {
-            try { startActivity(new Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)); }
-            catch (Exception e) {
-                try { startActivity(new Intent(Intent.ACTION_SET_WALLPAPER)); }
-                catch (Exception ignored) { android.widget.Toast.makeText(this, "Opção indisponível nesta TV", 0).show(); }
-            }
-        });
-        addAction(content, "Configurações do Android TV", () -> {
+        addAction(options, "Aplicativos instalados  ›", this::showApps);
+        addAction(options, "Configurações do sistema  ›", () -> {
             try { startActivity(new Intent(Settings.ACTION_SETTINGS)); }
             catch (Exception e) { android.widget.Toast.makeText(this, "Configurações indisponíveis", 0).show(); }
         });
+        options.addView(label("Mais widgets e organização personalizada: em desenvolvimento.", 14));
+        scroll.addView(options);
+        content.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
     }
 
     @Override public void onBackPressed() { showHome(); }
