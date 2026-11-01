@@ -37,6 +37,8 @@ public class MainActivity extends Activity {
     private int widgetSize;
     private boolean weatherWidget;
     private TextView weatherView;
+    private static final int PICK_WALLPAPER = 701;
+    private android.graphics.Bitmap customWallpaper;
 
     private int dp(int n) { return (int)(getResources().getDisplayMetrics().density * n + 0.5f); }
 
@@ -89,6 +91,7 @@ public class MainActivity extends Activity {
         shortcutsWidget = prefs.getBoolean("shortcutsWidget", true);
         widgetSize = prefs.getInt("widgetSize", 1);
         weatherWidget = prefs.getBoolean("weatherWidget", true);
+        loadSavedWallpaper();
         showHome();
     }
 
@@ -96,7 +99,11 @@ public class MainActivity extends Activity {
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.HORIZONTAL);
         root.setPadding(dp(22), dp(22), dp(22), dp(22));
-        root.setBackgroundColor(Color.rgb(17, 24, 38));
+        if (customWallpaper != null) {
+            root.setBackground(new android.graphics.drawable.BitmapDrawable(getResources(), customWallpaper));
+        } else {
+            root.setBackgroundColor(Color.rgb(17, 24, 38));
+        }
         menu = new LinearLayout(this);
         menu.setOrientation(LinearLayout.VERTICAL);
         menu.setPadding(dp(10), dp(10), dp(10), dp(10));
@@ -228,6 +235,55 @@ public class MainActivity extends Activity {
         }).start();
     }
 
+    private void pickWallpaper() {
+        try {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.setType("image/*");
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+            startActivityForResult(intent, PICK_WALLPAPER);
+        } catch (Exception e) {
+            android.widget.Toast.makeText(this, "Nenhum seletor de imagens disponível", android.widget.Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void loadSavedWallpaper() {
+        String uri = prefs.getString("wallpaperUri", null);
+        if (uri == null) return;
+        try {
+            android.net.Uri selected = android.net.Uri.parse(uri);
+            android.graphics.BitmapFactory.Options options = new android.graphics.BitmapFactory.Options();
+            options.inJustDecodeBounds = true;
+            try (java.io.InputStream input = getContentResolver().openInputStream(selected)) {
+                android.graphics.BitmapFactory.decodeStream(input, null, options);
+            }
+            int scale = 1;
+            while (options.outWidth / scale > 1920 || options.outHeight / scale > 1080) scale *= 2;
+            options.inJustDecodeBounds = false;
+            options.inSampleSize = scale;
+            try (java.io.InputStream input = getContentResolver().openInputStream(selected)) {
+                customWallpaper = android.graphics.BitmapFactory.decodeStream(input, null, options);
+            }
+        } catch (Exception ignored) {
+            customWallpaper = null;
+        }
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == PICK_WALLPAPER && resultCode == RESULT_OK && data != null && data.getData() != null) {
+            android.net.Uri selected = data.getData();
+            try {
+                getContentResolver().takePersistableUriPermission(selected, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                prefs.edit().putString("wallpaperUri", selected.toString()).apply();
+                loadSavedWallpaper();
+                showSettings();
+            } catch (Exception e) {
+                android.widget.Toast.makeText(this, "Não foi possível carregar a imagem", android.widget.Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
     private void showSettings() {
         base("Personalização  •  TCL Google TV");
         ScrollView scroll = new ScrollView(this);
@@ -235,9 +291,11 @@ public class MainActivity extends Activity {
         options.setOrientation(LinearLayout.VERTICAL);
         options.setPadding(dp(8), dp(8), dp(8), dp(12));
         options.addView(label("Deixe o seu launcher do seu jeito", 19));
-        addAction(options, "Papel de parede  ›", () -> {
-            try { startActivity(new Intent(Intent.ACTION_SET_WALLPAPER)); }
-            catch (Exception e) { android.widget.Toast.makeText(this, "Seletor indisponível nesta TV", 0).show(); }
+        addAction(options, "Papel de parede: escolher da galeria  ›", this::pickWallpaper);
+        addAction(options, "Restaurar papel de parede padrão", () -> {
+            prefs.edit().remove("wallpaperUri").apply();
+            customWallpaper = null;
+            showSettings();
         });
         String[] styles = {"Padrão (cinza)", "Transparente", "Colorido", "Escuro", "Sem efeito"};
         addAction(options, "Estilo Liquid Glass: " + styles[glassStyle] + "  ›", () -> {
