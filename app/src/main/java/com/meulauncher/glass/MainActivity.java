@@ -55,6 +55,11 @@ public class MainActivity extends Activity {
         d.setStroke(dp(1), Color.argb(115, 225, 232, 255));
         return d;
     }
+    private GradientDrawable selectedGlass() {
+        GradientDrawable d = glass();
+        d.setStroke(dp(2), Color.rgb(126, 193, 255));
+        return d;
+    }
     private TextView text(String value, int sp) {
         TextView t = new TextView(this);
         t.setText(value);
@@ -66,6 +71,7 @@ public class MainActivity extends Activity {
     private void focus(View v) {
         v.setFocusable(true);
         v.setOnFocusChangeListener((view, selected) -> {
+            view.setBackground(selected ? selectedGlass() : glass());
             view.setAlpha(selected ? 1f : .90f);
             view.setScaleX(selected ? 1.045f : 1f);
             view.setScaleY(selected ? 1.045f : 1f);
@@ -176,7 +182,7 @@ public class MainActivity extends Activity {
             tile.setGravity(Gravity.CENTER);
             tile.setPadding(dp(5), dp(8), dp(5), dp(5));
             tile.setBackground(glass());
-            LinearLayout.LayoutParams tileParams = new LinearLayout.LayoutParams(0, dp(compact ? 98 : 116), 1);
+            LinearLayout.LayoutParams tileParams = new LinearLayout.LayoutParams(dp(compact ? 105 : 124), dp(compact ? 98 : 116));
             tileParams.setMargins(dp(4), dp(4), dp(4), dp(4));
             row.addView(tile, tileParams);
             ImageView image = new ImageView(this);
@@ -230,6 +236,16 @@ public class MainActivity extends Activity {
         if (favorites.isEmpty()) grid(apps(), 6); else grid(favorites, 12);
         heading("Todos os apps");
         grid(apps(), 18);
+        heading("Filmes e séries");
+        TextView info = text("Abra seus aplicativos de streaming pela seção Filmes e Séries.", 15);
+        info.setPadding(dp(12), dp(8), dp(12), dp(16));
+        content.addView(info);
+        TextView browse = text("▣  Explorar filmes e séries", 17);
+        browse.setPadding(dp(18), dp(14), dp(18), dp(14));
+        browse.setBackground(glass());
+        focus(browse);
+        browse.setOnClickListener(v -> showCategory(2));
+        content.addView(browse);
     }
     private void showAllApps() {
         content.removeAllViews();
