@@ -77,7 +77,7 @@ public class MainActivity extends Activity {
         root.setPadding(dp(24), dp(18), dp(24), dp(18));
         GradientDrawable backdrop = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
             new int[]{Color.rgb(48, 34, 73), Color.rgb(18, 34, 64), Color.rgb(16, 20, 37)});
-        root.setBackground(backdrop);
+        root.setBackground(prefs.getBoolean("space", true) ? new SpaceWallpaper() : backdrop);
 
         LinearLayout sidebar = new LinearLayout(this);
         sidebar.setOrientation(LinearLayout.VERTICAL);
@@ -178,7 +178,7 @@ public class MainActivity extends Activity {
                     else Toast.makeText(this, "App indisponível", Toast.LENGTH_SHORT).show();
                 } catch (Exception e) { Toast.makeText(this, "Falha ao abrir aplicativo", Toast.LENGTH_SHORT).show(); }
             });
-            tile.setOnLongClickListener(v -> { boolean old = prefs.getBoolean("fav_" + info.packageName, false); prefs.edit().putBoolean("fav_" + info.packageName, !old).apply(); Toast.makeText(this, old ? "Removido dos favoritos" : "Adicionado aos favoritos", Toast.LENGTH_SHORT).show(); return true; });
+            tile.setOnLongClickListener(v -> { boolean old = prefs.getBoolean("fav_" + info.packageName, false); prefs.edit().putBoolean("fav_" + info.packageName, !old).apply(); Toast.makeText(this, old ? "Removido dos favoritos" : "Adicionado aos favoritos", Toast.LENGTH_SHORT).show(); showHome(); return true; });
             count++;
         }
         if (count == 0) content.addView(text("Nenhum aplicativo disponível nesta categoria.", 16));
@@ -228,6 +228,18 @@ public class MainActivity extends Activity {
         focus(option);
         option.setOnClickListener(v -> { compact = !compact; prefs.edit().putBoolean("compact", compact).apply(); showPersonalize(); });
         content.addView(option);
+        TextView wallpaper = text((prefs.getBoolean("space", true) ? "☑" : "☐") + "  Fundo espacial", 19);
+        wallpaper.setPadding(dp(22), dp(18), dp(22), dp(18));
+        wallpaper.setBackground(glass());
+        LinearLayout.LayoutParams wallpaperParams = new LinearLayout.LayoutParams(-1, -2);
+        wallpaperParams.topMargin = dp(12);
+        content.addView(wallpaper, wallpaperParams);
+        focus(wallpaper);
+        wallpaper.setOnClickListener(v -> {
+            boolean next = !prefs.getBoolean("space", true);
+            prefs.edit().putBoolean("space", next).apply();
+            recreate();
+        });
         TextView help = text("Segure OK sobre um aplicativo para adicionar ou remover dos favoritos.", 16);
         help.setPadding(dp(12), dp(28), dp(12), dp(12));
         content.addView(help);
