@@ -37,6 +37,8 @@ public class MainActivity extends Activity {
     private LinearLayout content;
     private SharedPreferences prefs;
     private boolean compact;
+    private boolean showLabels;
+    private int page = 0;
     private TextView clock;
     private TextView date;
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -82,6 +84,7 @@ public class MainActivity extends Activity {
         super.onCreate(saved);
         prefs = getSharedPreferences("launcher", MODE_PRIVATE);
         compact = prefs.getBoolean("compact", false);
+        showLabels = prefs.getBoolean("show_labels", true);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.HORIZONTAL);
@@ -191,7 +194,7 @@ public class MainActivity extends Activity {
             TextView label = text(pm.getApplicationLabel(info).toString(), 12);
             label.setGravity(Gravity.CENTER);
             label.setMaxLines(2);
-            tile.addView(label);
+            if (showLabels) tile.addView(label);
             focus(tile);
             tile.setOnClickListener(v -> {
                 Intent intent = pm.getLeanbackLaunchIntentForPackage(info.packageName);
@@ -207,6 +210,7 @@ public class MainActivity extends Activity {
         if (count == 0) content.addView(text("Nenhum aplicativo disponível nesta categoria.", 16));
     }
     private void showHome() {
+        page = 0;
         content.removeAllViews();
         LinearLayout hero = new LinearLayout(this);
         hero.setOrientation(LinearLayout.VERTICAL);
@@ -248,11 +252,13 @@ public class MainActivity extends Activity {
         content.addView(browse);
     }
     private void showAllApps() {
+        page = 1;
         content.removeAllViews();
         heading("Todos os apps");
         grid(apps(), 0);
     }
     private void showPersonalize() {
+        page = 7;
         content.removeAllViews();
         heading("Personalizar");
         TextView option = text((compact ? "☑" : "☐") + "  Ícones compactos", 19);
@@ -261,6 +267,18 @@ public class MainActivity extends Activity {
         focus(option);
         option.setOnClickListener(v -> { compact = !compact; prefs.edit().putBoolean("compact", compact).apply(); showPersonalize(); });
         content.addView(option);
+        TextView labels = text((showLabels ? "☑" : "☐") + "  Mostrar nomes dos aplicativos", 19);
+        labels.setPadding(dp(22), dp(18), dp(22), dp(18));
+        labels.setBackground(glass());
+        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(-1, -2);
+        labelParams.topMargin = dp(12);
+        content.addView(labels, labelParams);
+        focus(labels);
+        labels.setOnClickListener(v -> {
+            showLabels = !showLabels;
+            prefs.edit().putBoolean("show_labels", showLabels).apply();
+            showPersonalize();
+        });
         TextView wallpaper = text((prefs.getBoolean("photo", true) ? "☑" : "☐") + "  Papel de parede Homem-Aranha", 19);
         wallpaper.setPadding(dp(22), dp(18), dp(22), dp(18));
         wallpaper.setBackground(glass());
@@ -278,6 +296,7 @@ public class MainActivity extends Activity {
         content.addView(help);
     }
     private void showCategory(int index) {
+        page = index;
         content.removeAllViews();
         String[] titles = {"", "", "Filmes e Séries", "TV ao Vivo", "Jogos", "Música"};
         heading(titles[index]);
@@ -291,6 +310,10 @@ public class MainActivity extends Activity {
             if (ok) matching.add(app);
         }
         grid(matching, 0);
+    }
+    @Override public void onBackPressed() {
+        if (page != 0) showHome();
+        else super.onBackPressed();
     }
     @Override protected void onDestroy() {
         handler.removeCallbacks(tick);
