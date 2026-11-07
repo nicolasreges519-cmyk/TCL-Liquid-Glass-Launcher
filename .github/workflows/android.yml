@@ -18,6 +18,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
+      - name: Include selected wallpaper
+        run: |
+          mkdir -p app/src/main/assets
+          cp c0d9f89b15642516c373e3302e4f1249.jpg app/src/main/assets/spiderman_wallpaper.jpg
       - name: Build debug APK
         run: gradle --no-daemon assembleDebug
       - name: Upload test APK
