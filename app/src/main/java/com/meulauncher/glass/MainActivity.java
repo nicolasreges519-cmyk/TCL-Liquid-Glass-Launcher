@@ -8,6 +8,7 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
@@ -29,6 +30,8 @@ import java.util.Locale;
 
 public class MainActivity extends Activity {
     private LinearLayout content;
+    private SharedPreferences prefs;
+    private boolean compact;
     private TextView clock;
     private TextView date;
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -66,6 +69,8 @@ public class MainActivity extends Activity {
     }
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
+        prefs = getSharedPreferences("launcher", MODE_PRIVATE);
+        compact = prefs.getBoolean("compact", false);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.HORIZONTAL);
@@ -91,14 +96,15 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams navParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1);
         navParams.topMargin = dp(16);
         sidebar.addView(nav, navParams);
-        String[] names = {"⌂  Início", "▦  Apps", "▣  Filmes e Séries", "▣  TV ao Vivo", "◈  Jogos", "♫  Música", "⚙  Ajustes da TV"};
+        String[] names = {"⌂  Início", "▦  Apps", "▣  Filmes e Séries", "▣  TV ao Vivo", "◈  Jogos", "♫  Música", "⚙  Ajustes da TV", "✦  Personalizar"};
         for (int i = 0; i < names.length; i++) {
             final int index = i;
             TextView item = text(names[i], 16);
             item.setPadding(dp(12), dp(11), dp(6), dp(11));
             focus(item);
             item.setOnClickListener(v -> {
-                if (index == 6) {
+                if (index == 7) showPersonalize();
+                else if (index == 6) {
                     try { startActivity(new Intent(Settings.ACTION_SETTINGS)); }
                     catch (Exception e) { Toast.makeText(this, "Configurações indisponíveis", Toast.LENGTH_SHORT).show(); }
                 } else if (index == 0) showHome();
@@ -143,7 +149,7 @@ public class MainActivity extends Activity {
         int count = 0;
         for (ApplicationInfo info : items) {
             if (limit > 0 && count >= limit) break;
-            if (count % 6 == 0) {
+            if (count % (compact ? 7 : 6) == 0) {
                 row = new LinearLayout(this);
                 row.setOrientation(LinearLayout.HORIZONTAL);
                 content.addView(row);
@@ -153,12 +159,12 @@ public class MainActivity extends Activity {
             tile.setGravity(Gravity.CENTER);
             tile.setPadding(dp(5), dp(8), dp(5), dp(5));
             tile.setBackground(glass());
-            LinearLayout.LayoutParams tileParams = new LinearLayout.LayoutParams(0, dp(116), 1);
+            LinearLayout.LayoutParams tileParams = new LinearLayout.LayoutParams(0, dp(compact ? 98 : 116), 1);
             tileParams.setMargins(dp(4), dp(4), dp(4), dp(4));
             row.addView(tile, tileParams);
             ImageView image = new ImageView(this);
             try { image.setImageDrawable(pm.getApplicationIcon(info)); } catch (Exception ignored) { }
-            tile.addView(image, new LinearLayout.LayoutParams(dp(59), dp(59)));
+            tile.addView(image, new LinearLayout.LayoutParams(dp(compact ? 46 : 59), dp(compact ? 46 : 59)));
             TextView label = text(pm.getApplicationLabel(info).toString(), 12);
             label.setGravity(Gravity.CENTER);
             label.setMaxLines(2);
@@ -172,6 +178,7 @@ public class MainActivity extends Activity {
                     else Toast.makeText(this, "App indisponível", Toast.LENGTH_SHORT).show();
                 } catch (Exception e) { Toast.makeText(this, "Falha ao abrir aplicativo", Toast.LENGTH_SHORT).show(); }
             });
+            tile.setOnLongClickListener(v -> { boolean old = prefs.getBoolean("fav_" + info.packageName, false); prefs.edit().putBoolean("fav_" + info.packageName, !old).apply(); Toast.makeText(this, old ? "Removido dos favoritos" : "Adicionado aos favoritos", Toast.LENGTH_SHORT).show(); return true; });
             count++;
         }
         if (count == 0) content.addView(text("Nenhum aplicativo disponível nesta categoria.", 16));
@@ -201,7 +208,9 @@ public class MainActivity extends Activity {
         focus(button);
         button.setOnClickListener(v -> showAllApps());
         heading("Seus aplicativos");
-        grid(apps(), 12);
+        List<ApplicationInfo> favorites = new ArrayList<>();
+        for (ApplicationInfo app : apps()) if (prefs.getBoolean("fav_" + app.packageName, false)) favorites.add(app);
+        if (favorites.isEmpty()) grid(apps(), 6); else grid(favorites, 12);
         heading("Todos os apps");
         grid(apps(), 18);
     }
@@ -210,11 +219,33 @@ public class MainActivity extends Activity {
         heading("Todos os apps");
         grid(apps(), 0);
     }
+    private void showPersonalize() {
+        content.removeAllViews();
+        heading("Personalizar");
+        TextView option = text((compact ? "☑" : "☐") + "  Ícones compactos", 19);
+        option.setPadding(dp(22), dp(18), dp(22), dp(18));
+        option.setBackground(glass());
+        focus(option);
+        option.setOnClickListener(v -> { compact = !compact; prefs.edit().putBoolean("compact", compact).apply(); showPersonalize(); });
+        content.addView(option);
+        TextView help = text("Segure OK sobre um aplicativo para adicionar ou remover dos favoritos.", 16);
+        help.setPadding(dp(12), dp(28), dp(12), dp(12));
+        content.addView(help);
+    }
     private void showCategory(int index) {
         content.removeAllViews();
         String[] titles = {"", "", "Filmes e Séries", "TV ao Vivo", "Jogos", "Música"};
         heading(titles[index]);
-        grid(apps(), 0);
+        List<ApplicationInfo> matching = new ArrayList<>();
+        for (ApplicationInfo app : apps()) {
+            String name = getPackageManager().getApplicationLabel(app).toString().toLowerCase(Locale.ROOT);
+            boolean ok = index == 2 ? name.matches(".*(netflix|prime|disney|max|globoplay|stremio|plex|youtube|filme).*")
+                : index == 3 ? name.matches(".*(tv|pluto|canal|iptv).*")
+                : index == 4 ? (app.category == ApplicationInfo.CATEGORY_GAME || name.matches(".*(game|jogo|xbox|steam|geforce).*"))
+                : name.matches(".*(music|música|spotify|deezer|tidal|sound).*");
+            if (ok) matching.add(app);
+        }
+        grid(matching, 0);
     }
     @Override protected void onDestroy() {
         handler.removeCallbacks(tick);
