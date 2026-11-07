@@ -9,9 +9,17 @@ android {
     defaultConfig {
         applicationId 'com.meulauncher.glass'
         minSdk 26
-        targetSdk 32
-        versionCode 1
-        versionName '1.0'
+        targetSdk 34
+        versionCode 2
+        versionName '1.1'
+        manifestPlaceholders = [launcherLabel: 'TCL Liquid Glass']
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix '.teste'
+            manifestPlaceholders = [launcherLabel: 'TCL Liquid Glass (Teste)']
+        }
     }
 
     compileOptions {
