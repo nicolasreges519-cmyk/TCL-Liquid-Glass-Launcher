@@ -52,14 +52,16 @@ public class MainActivity extends Activity {
     private int dp(float n) { return (int)(n * getResources().getDisplayMetrics().density + .5f); }
     private GradientDrawable glass() {
         GradientDrawable d = new GradientDrawable();
-        d.setColor(Color.argb(194, 52, 57, 77));
+        d.setColors(new int[]{Color.argb(203, 70, 77, 102), Color.argb(166, 30, 37, 62)});
+        d.setOrientation(GradientDrawable.Orientation.TL_BR);
         d.setCornerRadius(dp(23));
-        d.setStroke(dp(1), Color.argb(115, 225, 232, 255));
+        d.setStroke(dp(1), Color.argb(130, 225, 232, 255));
         return d;
     }
     private GradientDrawable selectedGlass() {
         GradientDrawable d = glass();
-        d.setStroke(dp(2), Color.rgb(126, 193, 255));
+        d.setStroke(dp(2), Color.rgb(149, 213, 255));
+        d.setColors(new int[]{Color.argb(225, 91, 111, 151), Color.argb(203, 49, 64, 98)});
         return d;
     }
     private TextView text(String value, int sp) {
@@ -78,6 +80,7 @@ public class MainActivity extends Activity {
             view.setScaleX(selected ? 1.045f : 1f);
             view.setScaleY(selected ? 1.045f : 1f);
             view.setElevation(selected ? dp(10) : 0);
+            view.animate().setDuration(135).scaleX(selected ? 1.045f : 1f).scaleY(selected ? 1.045f : 1f).start();
         });
     }
     @Override public void onCreate(Bundle saved) {
@@ -88,20 +91,22 @@ public class MainActivity extends Activity {
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.HORIZONTAL);
-        root.setPadding(dp(24), dp(18), dp(24), dp(18));
+        root.setPadding(dp(22), dp(18), dp(22), dp(18));
         GradientDrawable backdrop = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
             new int[]{Color.rgb(48, 34, 73), Color.rgb(18, 34, 64), Color.rgb(16, 20, 37)});
         root.setBackground(prefs.getBoolean("photo", true) ? wallpaper(backdrop) : new SpaceWallpaper());
 
         LinearLayout sidebar = new LinearLayout(this);
         sidebar.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams sideParams = new LinearLayout.LayoutParams(dp(218), ViewGroup.LayoutParams.MATCH_PARENT);
+        LinearLayout.LayoutParams sideParams = new LinearLayout.LayoutParams(dp(204), ViewGroup.LayoutParams.MATCH_PARENT);
         sideParams.rightMargin = dp(18);
         root.addView(sidebar, sideParams);
 
         clock = text("", 43);
+        clock.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
         sidebar.addView(clock);
         date = text("", 14);
+        date.setAlpha(.84f);
         sidebar.addView(date);
         LinearLayout nav = new LinearLayout(this);
         nav.setOrientation(LinearLayout.VERTICAL);
@@ -114,7 +119,7 @@ public class MainActivity extends Activity {
         for (int i = 0; i < names.length; i++) {
             final int index = i;
             TextView item = text(names[i], 16);
-            item.setPadding(dp(12), dp(11), dp(6), dp(11));
+            item.setPadding(dp(12), dp(9), dp(6), dp(9));
             focus(item);
             item.setOnClickListener(v -> {
                 if (index == 7) showPersonalize();
@@ -130,6 +135,8 @@ public class MainActivity extends Activity {
         ScrollView scroller = new ScrollView(this);
         scroller.setFillViewport(true);
         scroller.setClipToPadding(false);
+        scroller.setVerticalScrollBarEnabled(false);
+        scroller.setSmoothScrollingEnabled(true);
         root.addView(scroller, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1));
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
@@ -153,7 +160,7 @@ public class MainActivity extends Activity {
     }
     private void heading(String value) {
         TextView title = text(value, 21);
-        title.setTypeface(null, Typeface.BOLD);
+        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, dp(43));
         p.topMargin = dp(10);
         content.addView(title, p);
@@ -194,6 +201,7 @@ public class MainActivity extends Activity {
             TextView label = text(pm.getApplicationLabel(info).toString(), 12);
             label.setGravity(Gravity.CENTER);
             label.setMaxLines(2);
+            label.setEllipsize(android.text.TextUtils.TruncateAt.END);
             if (showLabels) tile.addView(label);
             focus(tile);
             tile.setOnClickListener(v -> {
@@ -215,7 +223,7 @@ public class MainActivity extends Activity {
         LinearLayout hero = new LinearLayout(this);
         hero.setOrientation(LinearLayout.VERTICAL);
         hero.setGravity(Gravity.CENTER_VERTICAL);
-        hero.setPadding(dp(26), dp(16), dp(26), dp(16));
+        hero.setPadding(dp(28), dp(16), dp(28), dp(16));
         hero.setBackground(glass());
         LinearLayout.LayoutParams hp = new LinearLayout.LayoutParams(-1, dp(180));
         hp.bottomMargin = dp(12);
@@ -223,7 +231,7 @@ public class MainActivity extends Activity {
         hero.addView(text("INÍCIO", 13));
         int hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY);
         TextView greeting = text(hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite", 35);
-        greeting.setTypeface(null, Typeface.BOLD);
+        greeting.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
         hero.addView(greeting);
         hero.addView(text("Seus apps, do seu jeito, sem propaganda.", 16));
         TextView button = text("▶  Escolher um app", 15);
