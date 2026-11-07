@@ -217,6 +217,71 @@ public class MainActivity extends Activity {
         }
         if (count == 0) content.addView(text("Nenhum aplicativo disponível nesta categoria.", 16));
     }
+
+    // Rotating poster-style recommendations sourced from apps actually installed on the TV.
+    // This avoids displaying fictional movie titles or links to unavailable content.
+    private void posters() {
+        List<ApplicationInfo> streaming = new ArrayList<>();
+        PackageManager pm = getPackageManager();
+        for (ApplicationInfo app : apps()) {
+            String name = pm.getApplicationLabel(app).toString().toLowerCase(Locale.ROOT);
+            if (name.matches(".*(netflix|prime video|disney|globoplay|stremio|plex|youtube|pluto|hbo|max|crunchyroll|apple tv).*"))
+                streaming.add(app);
+        }
+        if (streaming.isEmpty()) {
+            TextView empty = text("Instale um aplicativo de streaming para ver sugestões aqui.", 15);
+            empty.setPadding(dp(18), dp(15), dp(18), dp(15));
+            empty.setBackground(glass());
+            content.addView(empty);
+            return;
+        }
+        int offset = (int)((System.currentTimeMillis() / 86400000L) % streaming.size());
+        LinearLayout strip = new LinearLayout(this);
+        strip.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams stripParams = new LinearLayout.LayoutParams(-1, dp(170));
+        stripParams.bottomMargin = dp(12);
+        content.addView(strip, stripParams);
+        for (int n = 0; n < Math.min(3, streaming.size()); n++) {
+            ApplicationInfo app = streaming.get((offset + n) % streaming.size());
+            String label = pm.getApplicationLabel(app).toString();
+            LinearLayout poster = new LinearLayout(this);
+            poster.setOrientation(LinearLayout.VERTICAL);
+            poster.setGravity(Gravity.CENTER);
+            poster.setPadding(dp(12), dp(14), dp(12), dp(12));
+            poster.setBackground(glass());
+            LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(0, -1, 1f);
+            pp.setMargins(dp(5), 0, dp(5), 0);
+            strip.addView(poster, pp);
+            ImageView art = new ImageView(this);
+            art.setImageDrawable(pm.getApplicationIcon(app));
+            art.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            poster.addView(art, new LinearLayout.LayoutParams(dp(76), dp(76)));
+            TextView title = text(label, 17);
+            title.setGravity(Gravity.CENTER);
+            title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            title.setSingleLine(true);
+            title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(-1, dp(36));
+            tp.topMargin = dp(8);
+            poster.addView(title, tp);
+            TextView action = text("Explorar  ▶", 13);
+            action.setGravity(Gravity.CENTER);
+            poster.addView(action);
+            focus(poster);
+            poster.setOnClickListener(v -> launchApp(app));
+        }
+    }
+    private void launchApp(ApplicationInfo info) {
+        PackageManager pm = getPackageManager();
+        try {
+            Intent intent = pm.getLeanbackLaunchIntentForPackage(info.packageName);
+            if (intent == null) intent = pm.getLaunchIntentForPackage(info.packageName);
+            if (intent != null) startActivity(intent);
+            else Toast.makeText(this, "Aplicativo indisponível", Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            Toast.makeText(this, "Não foi possível abrir " + pm.getApplicationLabel(info), Toast.LENGTH_SHORT).show();
+        }
+    }
     private void showHome() {
         page = 0;
         content.removeAllViews();
@@ -248,6 +313,8 @@ public class MainActivity extends Activity {
         if (favorites.isEmpty()) grid(apps(), 6); else grid(favorites, 12);
         heading("Todos os apps");
         grid(apps(), 18);
+        heading("Para você · aplicativos de streaming");
+        posters();
         heading("Filmes e séries");
         TextView info = text("Abra seus aplicativos de streaming pela seção Filmes e Séries.", 15);
         info.setPadding(dp(12), dp(8), dp(12), dp(16));
