@@ -82,7 +82,7 @@ public class MainActivity extends Activity {
         root.setPadding(dp(24), dp(18), dp(24), dp(18));
         GradientDrawable backdrop = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
             new int[]{Color.rgb(48, 34, 73), Color.rgb(18, 34, 64), Color.rgb(16, 20, 37)});
-        root.setBackground(wallpaper(backdrop));
+        root.setBackground(prefs.getBoolean("photo", true) ? wallpaper(backdrop) : new SpaceWallpaper());
 
         LinearLayout sidebar = new LinearLayout(this);
         sidebar.setOrientation(LinearLayout.VERTICAL);
@@ -137,14 +137,7 @@ public class MainActivity extends Activity {
             try { bitmap = BitmapFactory.decodeStream(stream); }
             finally { stream.close(); }
             if (bitmap == null) return fallback;
-            BitmapDrawable image = new BitmapDrawable(getResources(), bitmap);
-            image.setGravity(Gravity.CENTER);
-            image.setTileModeX(null);
-            image.setTileModeY(null);
-            return new LayerDrawable(new Drawable[] {
-                new ColorDrawable(Color.rgb(8, 14, 30)), image,
-                new ColorDrawable(Color.argb(52, 0, 0, 12))
-            });
+            return new PhotoWallpaper(bitmap);
         } catch (Exception ignored) {
             return prefs.getBoolean("space", true) ? new SpaceWallpaper() : fallback;
         }
@@ -252,7 +245,7 @@ public class MainActivity extends Activity {
         focus(option);
         option.setOnClickListener(v -> { compact = !compact; prefs.edit().putBoolean("compact", compact).apply(); showPersonalize(); });
         content.addView(option);
-        TextView wallpaper = text((prefs.getBoolean("space", true) ? "☑" : "☐") + "  Fundo espacial", 19);
+        TextView wallpaper = text((prefs.getBoolean("photo", true) ? "☑" : "☐") + "  Papel de parede Homem-Aranha", 19);
         wallpaper.setPadding(dp(22), dp(18), dp(22), dp(18));
         wallpaper.setBackground(glass());
         LinearLayout.LayoutParams wallpaperParams = new LinearLayout.LayoutParams(-1, -2);
@@ -260,8 +253,8 @@ public class MainActivity extends Activity {
         content.addView(wallpaper, wallpaperParams);
         focus(wallpaper);
         wallpaper.setOnClickListener(v -> {
-            boolean next = !prefs.getBoolean("space", true);
-            prefs.edit().putBoolean("space", next).apply();
+            boolean next = !prefs.getBoolean("photo", true);
+            prefs.edit().putBoolean("photo", next).apply();
             recreate();
         });
         TextView help = text("Segure OK sobre um aplicativo para adicionar ou remover dos favoritos.", 16);
