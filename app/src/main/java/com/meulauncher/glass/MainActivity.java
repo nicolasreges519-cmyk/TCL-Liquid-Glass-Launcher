@@ -5,6 +5,11 @@ import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.BitmapFactory;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.LayerDrawable;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
@@ -77,7 +82,7 @@ public class MainActivity extends Activity {
         root.setPadding(dp(24), dp(18), dp(24), dp(18));
         GradientDrawable backdrop = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
             new int[]{Color.rgb(48, 34, 73), Color.rgb(18, 34, 64), Color.rgb(16, 20, 37)});
-        root.setBackground(prefs.getBoolean("space", true) ? new SpaceWallpaper() : backdrop);
+        root.setBackground(wallpaper(backdrop));
 
         LinearLayout sidebar = new LinearLayout(this);
         sidebar.setOrientation(LinearLayout.VERTICAL);
@@ -124,6 +129,25 @@ public class MainActivity extends Activity {
         setContentView(root);
         handler.post(tick);
         showHome();
+    }
+    private Drawable wallpaper(Drawable fallback) {
+        try {
+            java.io.InputStream stream = getAssets().open("spiderman_wallpaper.jpg");
+            android.graphics.Bitmap bitmap;
+            try { bitmap = BitmapFactory.decodeStream(stream); }
+            finally { stream.close(); }
+            if (bitmap == null) return fallback;
+            BitmapDrawable image = new BitmapDrawable(getResources(), bitmap);
+            image.setGravity(Gravity.CENTER);
+            image.setTileModeX(null);
+            image.setTileModeY(null);
+            return new LayerDrawable(new Drawable[] {
+                new ColorDrawable(Color.rgb(8, 14, 30)), image,
+                new ColorDrawable(Color.argb(52, 0, 0, 12))
+            });
+        } catch (Exception ignored) {
+            return prefs.getBoolean("space", true) ? new SpaceWallpaper() : fallback;
+        }
     }
     private void heading(String value) {
         TextView title = text(value, 21);
